@@ -11,6 +11,15 @@ One of the sub-techniques of process injection is Thread Execution Hijacking, al
 ### Identifying the Target Process
 
 The attacker identifies a running process to hijack. The attacker usually chooses a process that has higher privileges or access to sensitive information/resources. The malware uses functions like `CreateToolhelp32Snapshot()` , `Thread32First()`, `Thread32Next()` to enumerate through the existing threads of a target process. These API calls help in identifying the thread that will be hijacked.
+***Snapshot: A collection of system objects captured at a point in time***
+
+CreateTOolhelp32Snapshort() inclues lot of parameters such as 
+- TH32CS_SNAPHEAPLIST: Includes the heap list of the process specified in th32ProcessID.
+- TH32CS_SNAPPROCESS: Includes all processes in the system.
+- TH32CS_SNAPTHREAD: Includes all threads in the system.
+- TH32CS_SNAPMODULE: Includes all modules of the process specified in th32ProcessID.
+- TH32CS_SNAPMODULE32: Includes all 32-bit modules of the process specified in th32ProcessID when running on a 64-bit system.
+- TH32CS_SNAPALL: Includes all of the above.
 
 ```cpp
 THREADENTRY32 threadEntry;
