@@ -1,8 +1,0 @@
-
-Process Injection: Thread Execution Hijacking
-
-Process Injection is a sophisticated technique employed by adversaries to inject malicious code into the address space 
-of another process, allowing them to evade detection and elevate privileges. One of the sub-techniques of process injection 
-is Thread Execution Hijacking, which involves injecting code into an existing live process. This method is particularly 
-insidious as it hijacks an active thread within the target process, masking the malicious activity under the guise of 
-legitimate operations.
