@@ -10,21 +10,24 @@ One of the sub-techniques of process injection is Thread Execution Hijacking, al
 
 ### Identifying the Target Process
 
-The attacker identifies a running process to hijack. The attacker usually chooses a process that has higher privileges or access to sensitive information/resources. The malware uses functions like `CreateToolhelp32Snapshot` and `Thread32First` to enumerate through the existing threads of a target process. These API calls help in identifying the thread that will be hijacked.
+The attacker identifies a running process to hijack. The attacker usually chooses a process that has higher privileges or access to sensitive information/resources. The malware uses functions like `CreateToolhelp32Snapshot()` , `Thread32First()`, `Thread32Next()` to enumerate through the existing threads of a target process. These API calls help in identifying the thread that will be hijacked.
 
 ```cpp
-HANDLE hSnapshot = CreateToolhelp32Snapshot(TH32CS_SNAPTHREAD, 0);
-THREADENTRY32 te;
-te.dwSize = sizeof(THREADENTRY32);
+THREADENTRY32 threadEntry;
 
-Thread32First(hSnapshot, &te);
-do {
-    if (te.th32OwnerProcessID == targetProcessId) {
-        targetThreadId = te.th32ThreadID;
-        break;
-    }
-} while (Thread32Next(hSnapshot, &te));
-CloseHandle(hSnapshot);
+HANDLE hSnapshot = CreateToolhelp32Snapshot( // Snapshot the specificed process
+	TH32CS_SNAPTHREAD, // Include all processes residing on the system
+	0 // Indicates the current process
+);
+Thread32First( // Obtains the first thread in the snapshot
+	hSnapshot, // Handle of the snapshot
+	&threadEntry // Pointer to the THREADENTRY32 structure
+);
+
+while (Thread32Next( // Obtains the next thread in the snapshot
+	snapshot, // Handle of the snapshot
+	&threadEntry // Pointer to the THREADENTRY32 structure
+)) 
 
 ```
 ### Gaining a Handle to the Process
