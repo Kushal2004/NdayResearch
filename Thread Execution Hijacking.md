@@ -2,7 +2,9 @@
 
 ## Overview
 
-Process injection is a technique used by attackers to inject malicious code into the address space of another process. This allows them to prevent detection and elevate privileges. One of the sub-techniques of process injection is Thread Execution Hijacking, also known as Suspend, Inject, and Resume (SIR). This technique avoids the creation of new processes or threads, which can be noisy and more easily detected by security measures.
+Process injection is a technique used by attackers to inject malicious code into the address space of another process. This allows them to prevent detection and elevate privileges. 
+
+One of the sub-techniques of process injection is Thread Execution Hijacking, also known as Suspend, Inject, and Resume (SIR). This technique avoids the creation of new processes or threads, which can be noisy and more easily detected by security measures.
 
 ## High-Level Steps
 
@@ -25,6 +27,19 @@ Thread execution hijacking can be broken down into the following high-level step
 
 The attacker identifies a running process to hijack, usually one with higher privileges or access to sensitive information. Functions like `CreateToolhelp32Snapshot()`, `Thread32First()`, and `Thread32Next()` are used to enumerate through the existing threads of a target process.
 
+#### CreateTOolhelp32Snapshort() : Takes a snapshot of the specified processes, as well as the heaps, modules, and threads used by these processes. It inclues lot of parameters such as
+
+***Snapshot: A collection of system objects captured at a point in time***
+
+- TH32CS_SNAPHEAPLIST: Includes the heap list of the process specified in th32ProcessID.
+- TH32CS_SNAPPROCESS: Includes all processes in the system.
+- TH32CS_SNAPTHREAD: Includes all threads in the system.
+- TH32CS_SNAPMODULE: Includes all modules of the process specified in th32ProcessID.
+- TH32CS_SNAPMODULE32: Includes all 32-bit modules of the process specified in th32ProcessID when running on a 64-bit system.
+- TH32CS_SNAPALL: Includes all of the above.
+
+#### Thread32First() : Retrieves information about the first thread of any process encountered in a system snapshot.
+
 ```cpp
 THREADENTRY32 threadEntry;
 
@@ -32,9 +47,10 @@ HANDLE hSnapshot = CreateToolhelp32Snapshot( // Snapshot the specified process
     TH32CS_SNAPTHREAD, // Include all threads in the system
     0 // Indicates the current process
 );
-Thread32First( // Obtains the first thread in the snapshot
+Bool Thread32First( // Obtains the first thread in the snapshot
     hSnapshot, // Handle of the snapshot
     &threadEntry // Pointer to the THREADENTRY32 structure
+    // Describes an entry from a list of the threads executing in the system when a snapshot was taken.
 );
 
 while (Thread32Next( // Obtains the next thread in the snapshot
