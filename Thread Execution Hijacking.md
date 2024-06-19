@@ -39,6 +39,7 @@ The attacker identifies a running process to hijack, usually one with higher pri
 - TH32CS_SNAPALL: Includes all of the above.
 
 #### Thread32First() : Retrieves information about the first thread of any process encountered in a system snapshot.
+#### Thread32Next(): Retrieves information about the next thread of any process encountered in the system memory snapshot.
 
 ```cpp
 THREADENTRY32 threadEntry;
@@ -64,6 +65,8 @@ while (Thread32Next( // Obtains the next thread in the snapshot
 ### 2. Allocate Memory Region for Malicious Code
 
 Memory within the address space of the target process is allocated for the malicious code using `VirtualAllocEx`.
+
+#### VirtualAllocEx() Reserves, commits, or changes the state of a region of memory within the virtual address space of a specified process. The function initializes the memory it allocates to zero.
 
 ```cpp 
 LPVOID pRemoteCode = VirtualAllocEx(hProcess, NULL, payloadSize, MEM_COMMIT, PAGE_EXECUTE_READWRITE);
