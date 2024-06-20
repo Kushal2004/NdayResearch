@@ -69,7 +69,13 @@ Memory within the address space of the target process is allocated for the malic
 #### VirtualAllocEx() Reserves, commits, or changes the state of a region of memory within the virtual address space of a specified process. The function initializes the memory it allocates to zero.
 
 ```cpp 
-LPVOID pRemoteCode = VirtualAllocEx(hProcess, NULL, payloadSize, MEM_COMMIT, PAGE_EXECUTE_READWRITE);
+PVOIF remoteBuffer = VirtualAllocEx(
+	hProcess, // Opened target process
+	NULL, 
+	sizeof shellcode, // Region size of memory allocation
+	(MEM_RESERVE | MEM_COMMIT), // Reserves and commits pages
+	PAGE_EXECUTE_READWRITE // Enables execution and read/write access to the commited pages
+);
 
 ```
 ### 3. Write Malicious Code to Allocated Memory
@@ -90,7 +96,16 @@ Enumerate through the threads of the target process to find the thread to hijack
 Using `OpenThread`, the attacker obtains a handle to the target thread.
 
 ```cpp
-HANDLE hThread = OpenThread(THREAD_ALL_ACCESS, FALSE, targetThreadId);
+
+if (threadEntry.th32OwnerProcessID == processID) // Verifies both parent process ID's match
+		{
+			HANDLE hThread = OpenThread(
+				THREAD_ALL_ACCESS, // Requests all possible access rights
+				FALSE, // Child threads do not inheret parent thread handle
+				threadEntry.th32ThreadID // Reads the thread ID from the THREADENTRY32 structure pointer
+			);
+			break;
+		}
 
  ```
 

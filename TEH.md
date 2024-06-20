@@ -114,3 +114,21 @@ The malicious code gains access to the memory, system, and network resources of 
 ### Privilege Escalation
 
 If the hijacked process has elevated privileges, the malicious code can inherit these privileges, allowing the attacker to perform actions that would normally require higher levels of access.
+
+---
+Thread Context
+Understanding thread context is crucial for hijacking. Every thread has a scheduling priority and a set of structures saved to its context, including CPU registers and the stack. The WinAPIs GetThreadContext and SetThreadContext are used to retrieve and set a thread's context, respectively.
+
+Modifying The Thread's Context: Retrieve the thread's context using GetThreadContext, modify the instruction pointer register to point to the payload, and set the context back using SetThreadContext.
+
+8. Setting ContextFlags
+Before calling GetThreadContext, the CONTEXT.ContextFlags must be set to CONTEXT_CONTROL or CONTEXT_ALL. This step ensures that the necessary parts of the context are retrieved and can be modified for hijacking.
+
+Thread Identification: Each process in Windows runs one or more threads, where each thread is responsible for executing a specific set of instructions. When you aim to hijack a process, you first need to identify which thread within that process you want to take control of.
+
+Thread Enumeration (Thread32First() and Thread32Next()):
+
+It then iterates through each thread in the snapshot using Thread32First() and Thread32Next() functions. For each thread, it retrieves information using a THREADENTRY32 structure (threadEntry).
+Thread Identification:
+
+Within the loop, it checks if the th32OwnerProcessID of the current threadEntry matches the processId provided to the InjectAndHijackThread() function. This comparison ensures that the thread belongs to the target process you are interested in.
