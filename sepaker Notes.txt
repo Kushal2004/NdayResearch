@@ -1,0 +1,199 @@
+1 
+
+Welcome everyone, and thank you for joining today's presentation on process injection, specifically focusing on the technique known as Thread Execution Hijacking. And today we'll dive into the details of how attackers use this method to inject malicious code into the address space of another process to avoid detection and elevate privileges.
+
+--------
+
+2
+
+Process injection is a technique used by attackers to inject malicious code into the address space of another process. This allows them to prevent detection and elevate privileges. 
+
+One of the sub-techniques of process injection is Thread Execution Hijacking, also known as Suspend, Inject, and Resume (SIR). 
+
+--------
+3
+
+We are not creating any thread , but we are manipulating the existing thread by suspending it and changing its content to point to a the payload and resuming the thread .
+Advantage is that Creating a new thread for payload execution exposes the payload’s memory address, making it susceptible to detection
+thread hijacking points the thread to a benign function, maintaining a normal appearance
+
+----------
+4
+
+Imagine an attacker looking for a process to hijack. This process is often one with higher privileges or access to sensitive data
+HANDLE hProcess = OpenProcess( 
+	PROCESS_ALL_ACCESS, // Requests all possible access rights 
+	FALSE, // Child processes do not inherit parent process handle 
+	processId // Stored process ID 
+); 
+
+
+----------
+5
+
+Once a target process is identified, the next step is to allocate memory within this process to store the malicious code. The attacker uses the VirtualAllocEx function, which reserves and commits a region of memory in the target process’s virtual address space. The allocated memory is set to be executable, readable, and writable.
+
+PVOIF remoteBuffer = VirtualAllocEx ( 
+hProcess, // Opened target process 
+NULL, // the function determines where to allocate the region.
+sizeof shellcode, // Region size of memory allocation 
+(MEM_RESERVE | MEM_COMMIT), // Reserves and commits pages 
+PAGE_EXECUTE_READWRITE // Enables execution and read/write access to the committed pages
+); 
+
+This newly allocated memory region will hold the malicious payload
+
+
+----------
+6
+
+The attacker now needs to write the malicious code into the allocated memory. This is accomplished using the WriteProcessMemory function, which writes data to the specified location in the virtual address space of the target process.
+
+WriteProcessMemory( 
+processHandle, // Opened target process 
+remoteBuffer, // Allocated memory region 
+shellcode, // Data to write 
+sizeof shellcode, // byte size of data 
+NULL 
+); 
+
+A handle to the process memory to be modified. The handle must have PROCESS_VM_WRITE and PROCESS_VM_OPERATION access to the process.
+
+A pointer to a variable that receives the number of bytes transferred into the specified process. This parameter is optional. If lpNumberOfBytesWritten is NULL, the parameter is ignored.
+
+With the malicious code now residing in the target process’s memory, the stage is set for hijacking an active thread.
+
+
+----------
+7
+The attacker continues by identifying the thread ID of the target thread to hijack. Using the THREADENTRY32 structure along with Thread32First and Thread32Next, they enumerate through the threads of the target process, pinpointing the exact thread to hijack based on the desired criteria, such as the thread’s activity or privilege level.
+
+THREADENTRY32 threadEntry; 
+
+HANDLE hSnapshot = CreateToolhelp32Snapshot( // Snapshot the specified process 	
+	TH32CS_SNAPTHREAD, // Includes all threads in the system in the snapshot
+	0 // Indicates the current process 
+); 
+
+Thread32First( // Obtains the first thread in the snapshot 
+hSnapshot, // Handle of the snapshot 
+&threadEntry // Pointer to the THREADENTRY32 structure 
+); 
+
+while (Thread32Next( // Obtains the next thread in the snapshot 
+snapshot, // Handle of the snapshot 
+&threadEntry // Pointer to the THREADENTRY32 structure 
+)) { 
+
+The CreateToolhelp32Snapshot function is crucial here. It takes a snapshot of the processes, threads, and other system objects at a specific moment. By using this snapshot, the attacker can enumerate through all threads in the system using Thread32First to get the first thread and Thread32Next to iterate through the remaining threads.
+
+
+
+----------
+8
+
+To gain control over the target thread, the attacker uses the OpenThread function to obtain a handle to it. This handle allows the attacker to manipulate the thread directly.
+
+if (threadEntry.th32OwnerProcessID == processID) // Verifies both parent process ID's match 
+	{ 
+HANDLE hThread = OpenThread( 
+THREAD_ALL_ACCESS, // Requests all possible access rights 
+FALSE, // Child threads do not inherit parent thread handle 
+threadEntry.th32ThreadID // Reads the thread ID from the THREADENTRY32 structure pointer 
+    ); 
+    break; 
+} 
+
+With this handle, the attacker can now suspend and modify the thread.
+
+
+
+----------
+9
+
+Next, the attacker suspends the target thread using the SuspendThread API call. Suspending the thread freezes its execution, providing a stable state for further manipulation.
+
+Now, the attacker can safely retrieve and modify the thread’s context.
+
+
+----------
+10
+
+The context of the thread, which includes its register states and instruction pointers, is retrieved using the GetThreadContext function. This information is stored in a CONTEXT structure.
+
+This context will be altered to redirect the thread’s execution to the malicious code.
+
+
+----------
+11
+
+The attacker then updates the thread’s instruction pointer to point to the address of the injected malicious code. For a 64-bit system, this means setting the Rip register in the context structure to the address of the allocated memory.
+
+This redirection ensures that when the thread resumes, it will execute the malicious code.
+
+
+----------
+12
+
+The modified context, with the updated instruction pointer, is written back to the thread using the SetThreadContext function.
+This finalizes the preparation for the thread to run the malicious code.
+
+
+----------
+13
+
+Finally, the attacker resumes the thread using the ResumeThread API call. Once resumed, the thread starts executing the malicious code injected by the attacker.
+At this point, the malicious code is running within the context of the target process, often with elevated privileges and without creating any new, suspicious processes or threads.
+
+
+----------
+14
+
+----------
+15
+
+----------
+16
+
+API Monitoring: Implement rules to detect sequences of suspicious API calls.
+Challenges: High volume of legitimate API calls. Focus on known bad sequences.
+Machine Learning: Use models to identify anomalies and correlate with other indicators like unusual process behavior.
+------------
+Monitoring process access events can reveal unusual interactions indicative of malicious activity:
+Process Viewing: Look for processes accessing high-value targets.
+Indicators: Frequent memory access, especially from processes that don't typically interact with the target.
+----------
+Microsoft Sysmon is a powerful tool for capturing detailed information about process creation, network connections, and file changes. It's particularly useful for detecting thread execution hijacking.
+
+
+----------
+17
+
+1. Endpoint Detection and Response (EDR) Solutions
+Behavior Analysis: Monitor for suspicious sequences of API calls.
+Anomaly Detection: Use machine learning to identify deviations from normal behavior.
+Real-time Alerts: Generate alerts for immediate investigation.
+2. Process Execution Policies
+Policy Enforcement: Restrict dangerous API calls unless explicitly allowed.
+Whitelisting: Allow only trusted processes to perform sensitive operations.
+3. Memory Protection
+Integrity Checks: Detect unauthorized memory modifications.
+Executable Space Protection: Implement DEP and ASLR to prevent execution of injected code.
+4. User and Process Privileges
+Least Privilege Principle: Minimize privileges for users and processes.
+Privileged Access Management: Monitor and control privileged accounts.
+5. Continuous Monitoring and Incident Response
+Continuous Monitoring: Deploy solutions to detect process injection attempts.
+Incident Response Plan: Prepare procedures for isolation, analysis, and remediation.
+6. Endpoint Security Configuration
+Security Baselines: Enforce security settings and keep systems updated.
+Regular Updates: Apply patches and update signatures to protect against known threats.
+By implementing these mitigations, organizations can significantly reduce the risk of thread execution hijacking and enhance their overall security posture.
+-----------
+Data Execution Prevention (DEP)
+Definition: Data Execution Prevention is a security feature that prevents code from being executed in certain regions of memory that are intended to store only data.
+
+Address Space Layout Randomization (ASLR)
+Definition: Address Space Layout Randomization is a security technique that randomizes the memory addresses used by system and application processes.
+
+-----------------------------------------------------------------
