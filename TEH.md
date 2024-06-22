@@ -132,3 +132,4 @@ It then iterates through each thread in the snapshot using Thread32First() and T
 Thread Identification:
 
 Within the loop, it checks if the th32OwnerProcessID of the current threadEntry matches the processId provided to the InjectAndHijackThread() function. This comparison ensures that the thread belongs to the target process you are interested in.
+123
