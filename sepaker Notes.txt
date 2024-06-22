@@ -21,11 +21,7 @@ thread hijacking points the thread to a benign function, maintaining a normal ap
 4
 
 Imagine an attacker looking for a process to hijack. This process is often one with higher privileges or access to sensitive data
-HANDLE hProcess = OpenProcess( 
-	PROCESS_ALL_ACCESS, // Requests all possible access rights 
-	FALSE, // Child processes do not inherit parent process handle 
-	processId // Stored process ID 
-); 
+
 
 
 ----------
@@ -33,13 +29,7 @@ HANDLE hProcess = OpenProcess(
 
 Once a target process is identified, the next step is to allocate memory within this process to store the malicious code. The attacker uses the VirtualAllocEx function, which reserves and commits a region of memory in the target process’s virtual address space. The allocated memory is set to be executable, readable, and writable.
 
-PVOIF remoteBuffer = VirtualAllocEx ( 
-hProcess, // Opened target process 
-NULL, // the function determines where to allocate the region.
-sizeof shellcode, // Region size of memory allocation 
-(MEM_RESERVE | MEM_COMMIT), // Reserves and commits pages 
-PAGE_EXECUTE_READWRITE // Enables execution and read/write access to the committed pages
-); 
+
 
 This newly allocated memory region will hold the malicious payload
 
@@ -49,13 +39,7 @@ This newly allocated memory region will hold the malicious payload
 
 The attacker now needs to write the malicious code into the allocated memory. This is accomplished using the WriteProcessMemory function, which writes data to the specified location in the virtual address space of the target process.
 
-WriteProcessMemory( 
-processHandle, // Opened target process 
-remoteBuffer, // Allocated memory region 
-shellcode, // Data to write 
-sizeof shellcode, // byte size of data 
-NULL 
-); 
+
 
 A handle to the process memory to be modified. The handle must have PROCESS_VM_WRITE and PROCESS_VM_OPERATION access to the process.
 
@@ -68,23 +52,6 @@ With the malicious code now residing in the target process’s memory, the stage
 7
 The attacker continues by identifying the thread ID of the target thread to hijack. Using the THREADENTRY32 structure along with Thread32First and Thread32Next, they enumerate through the threads of the target process, pinpointing the exact thread to hijack based on the desired criteria, such as the thread’s activity or privilege level.
 
-THREADENTRY32 threadEntry; 
-
-HANDLE hSnapshot = CreateToolhelp32Snapshot( // Snapshot the specified process 	
-	TH32CS_SNAPTHREAD, // Includes all threads in the system in the snapshot
-	0 // Indicates the current process 
-); 
-
-Thread32First( // Obtains the first thread in the snapshot 
-hSnapshot, // Handle of the snapshot 
-&threadEntry // Pointer to the THREADENTRY32 structure 
-); 
-
-while (Thread32Next( // Obtains the next thread in the snapshot 
-snapshot, // Handle of the snapshot 
-&threadEntry // Pointer to the THREADENTRY32 structure 
-)) { 
-
 The CreateToolhelp32Snapshot function is crucial here. It takes a snapshot of the processes, threads, and other system objects at a specific moment. By using this snapshot, the attacker can enumerate through all threads in the system using Thread32First to get the first thread and Thread32Next to iterate through the remaining threads.
 
 
@@ -94,15 +61,6 @@ The CreateToolhelp32Snapshot function is crucial here. It takes a snapshot of th
 
 To gain control over the target thread, the attacker uses the OpenThread function to obtain a handle to it. This handle allows the attacker to manipulate the thread directly.
 
-if (threadEntry.th32OwnerProcessID == processID) // Verifies both parent process ID's match 
-	{ 
-HANDLE hThread = OpenThread( 
-THREAD_ALL_ACCESS, // Requests all possible access rights 
-FALSE, // Child threads do not inherit parent thread handle 
-threadEntry.th32ThreadID // Reads the thread ID from the THREADENTRY32 structure pointer 
-    ); 
-    break; 
-} 
 
 With this handle, the attacker can now suspend and modify the thread.
 
@@ -197,3 +155,32 @@ Address Space Layout Randomization (ASLR)
 Definition: Address Space Layout Randomization is a security technique that randomizes the memory addresses used by system and application processes.
 
 -----------------------------------------------------------------
+
+
+1. RWX permission is a trouble ?
+
+Allocate memory with read/write permissions.
+Write the shellcode to the allocated memory.
+Change the memory permissions to read/execute once the shellcode is written.
+
+Use Existing Executable Memory: Instead of allocating new memory, hijack an existing executable region in the target process.
+
+Code Cave Injection: We can find unused or less-used parts of the process's executable sections (code caves) to inject the shellcode.
+
+(VirtualProtect): changing the memory to Read-Execute (RX) after writing to it.
+
+
+2.Problem with Thread Creation ?
+creating a new thread can expose the base address of the payload. Since the new thread starts execution at this address, it becomes relatively easy to identify the location and content of the payload in memory.
+
+
+3. Which thread do you suspend? Not the CRT main one.
+ (e.g., CRTMain) as it can cause the process to become unstable or crash. Instead, you should target a non-critical thread that is less likely to disrupt the process.
+
+4. Which register for 32-bit systems do you use to change the next to be executed instruction? EIP , extended instruction pointer register
+
+5. What is Trojan.Karagany doing? Local or Remote?
+Trojan.Karagany performs local thread execution hijacking. It creates a suspended thread within its own process and then injects this thread into a new target process. This approach allows it to execute its payload in the context of the new process.
+
+6. What is Gazer doing? Local or Remote?
+Gazer is performing remote thread execution hijacking. It injects its orchestrator module into a running thread of a remote process. This allows Gazer to run its code within the context of another process, making detection and analysis more difficult.
